@@ -1,0 +1,579 @@
+{% extends "admin/change_list.html" %}
+{% load i18n unfold %}
+
+{% block content %}
+
+<div class="flex flex-col gap-2" x-data="data">
+  <div x-show="openModal" x-on:keydown.escape.window="openModal = false">
+    <div class="bg-slate-900/80 bottom-0 fixed left-0 right-0 top-0 z-20"></div>
+    <div class="fixed bottom-0 p-auto left-0 overflow-auto right-0 top-0 z-30 lg:py-24">
+      <div class="max-w-7xl mx-auto relative shadow-lg z-90 w-[600px]" x-on:click.outside="openModal = false">
+        <div id="modal-content" class="bg-white rounded-lg flex flex-col">
+          <p class="bg-[#EBEDF2] text-[#70798c] rounded-t-lg py-1 pl-2 font-bold">Warning</p>
+          <p class="p-4 font-semibold text-[#70798c]">The price you've set for the order is 5% higher than the market
+            price. Would you like to place the order ?</p>
+          <div class="flex flex-row text-white font-semibold w-full justify-center mb-6">
+            <button class="bg-[#EBEDF2] text-[#70798c] rounded-md w-[146px] h-9"
+              x-on:click="openModal = false;submitting = false">Cancel</button>
+            <button x-on:click="confirmAndPlaceOrder" class="bg-[#f2495e] rounded-md w-[146px] h-9 ml-8">Place the
+              order</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ml-auto w-full flex flex-col max-w-xs shadow rounded mr-0 border border-gray-800  bg-gray-900">
+    <p class="pl-2 py-4 flex items-center border-b text-gray-200 border-gray-800 font-bold bg-gray-900">Spot Trade
+    </p>
+    <div class="flex flex-col gap-4">
+      <div class="flex flex-row mx-3 rounded items-center">
+        <ul class="flex flex-row w-full  items-center">
+          <!-- #f2495e; -->
+          <li class="basis-1/2 rounded h-8 flex flex-1 justify-center items-center cursor-pointer"
+            x-on:click="side='buy'"
+            x-bind:style="side=='buy' ? 'font-weight: 700; color:white; background-color: #1bb273;' : 'font-weight: 400;color: #70798c; background-color: #EBEDF2'">
+            <p class="flex">Buy</p>
+          </li>
+          <li class="basis-1/2 ml-1 rounded h-8 flex flex-1 justify-center items-center cursor-pointer"
+            x-on:click="side='sell'"
+            x-bind:style="side=='sell' ? 'font-weight: 700; color:white; background-color: #f2495e;' : 'font-weight: 400;color: #70798c; background-color: #EBEDF2'">
+            <p class="flex">Sell</p>
+          </li>
+        </ul>
+      </div>
+      <div class="flex flex-col mx-3 ">
+        <ul class="flex flex-row  items-center">
+          <li class="basis-1/6 rounded h-8  flex justify-center items-center cursor-pointer"
+            x-on:click="orderType='limit'">
+            <p x-bind:class="orderType=='limit' ? 'font-bold text-white' : 'font-medium'">Limit</p>
+          </li>
+          <li class="ml-2 basis-1/6 rounded h-8  flex justify-center items-center cursor-pointer"
+            x-on:click="orderType='market'">
+            <p x-bind:class="orderType=='market' ? 'font-bold text-white' : 'font-medium'">Market</p>
+          </li>
+        </ul>
+      </div>
+      <form class="flex flex-col px-2 pb-2 mb-4 gap-4">
+        <div class="flex flex-col gap-2">
+          <div class="flex flex-row">
+            <div class="relative rounded-md shadow-sm w-full">
+              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <span class="text-gray-500 sm:text-sm">Exchange</span>
+              </div>
+              <select required x-model="exchange"
+                class="w-full py-1 pl-20 pr-2 rounded  placeholder:text-gray-500 text-sm bg-gray-900 border-gray-700 focus:border-primary-600 focus:ring-primary-700 focus:ring-opacity-50">
+                <template x-for="ex in exchanges">
+                  <option style="height: 30px; display: block;" :value="ex.value" x-text="ex.name"
+                    x-bind:disabled="ex.disabled"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+          <div class="flex flex-row">
+            <div class="relative rounded-md shadow-sm w-full">
+              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <span class="text-gray-500 sm:text-sm">Account</span>
+              </div>
+              <select required x-model="account"
+                class="w-full py-1 pl-20 pr-2 rounded  placeholder:text-gray-500 text-sm bg-gray-900 border-gray-700 focus:border-primary-600 focus:ring-primary-700 focus:ring-opacity-50">
+                <!-- <option type="text" value="" disabled>Select Exchange Account</option> -->
+                <!-- {% for account in accounts %}
+                <option type="text" value="{{account.id}}">{{account}}</option>
+                {% endfor %} -->
+                <template x-for="exAccount in accounts">
+                  <option :value="exAccount.value" x-text="exAccount.name" x-bind:disabled="exAccount.disabled">
+                  </option>
+                </template>
+              </select>
+            </div>
+          </div>
+          <div class="flex flex-row">
+            <div class="relative rounded-md shadow-sm w-full">
+              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <span class="text-gray-500 sm:text-sm">Symbol</span>
+              </div>
+              <select id="location" name="location" x-model="symbol"
+                class="w-full py-1 pl-20 pr-2 rounded text-sm bg-gray-900 border-gray-700 text-gray-400 focus:border-primary-600 focus:ring-primary-700 focus:ring-opacity-50">
+                <template x-for="cp in symbols">
+                  <option :value="cp.value" x-text="cp.name" x-bind:disabled="cp.disabled"></option>
+                </template>
+                <!-- <option type="text" value="" disabled>Select Symbol</option>
+                {% for symbol in symbols %}
+                <option type="text" value="{{symbol}}">{{symbol}}</option>
+                {% endfor %} -->
+              </select>
+            </div>
+          </div>
+          <p x-show="symbol != ''" class="ml-4 text-[12px]">Market Price: <span class="font-semibold"
+              x-text="currencyPair.last_price"></span></p>
+          <div class="flex flex-row" x-show="orderType=='limit'">
+            <div class="relative rounded-md shadow-sm w-full">
+              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <span class="text-gray-500 sm:text-sm">Price</span>
+              </div>
+              <input type="number" name="price" id="price" x-model.number="price" autocomplete="off"
+                class="no-spinner w-full py-1 pl-20 pr-2 rounded text-sm bg-gray-900 border-gray-700 placeholder:text-gray-500 focus:text-gray-200  focus:ring focus:outline-none focus:border-primary-600 focus:ring-primary-700 focus:ring-opacity-50"
+                placeholder="">
+              <div class="absolute inset-y-0 right-0 flex items-center">
+                <label for="currency" class="sr-only">Currency</label>
+                <div id="currency" name="currency"
+                  class="rounded-md  bg-transparent  pr-7 text-gray-500  items-center focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm">
+                  <span>USDT</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- <div class="flex flex-row ">
+            <div class="relative mt-2 rounded-md shadow-sm w-full">
+              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <span class="text-gray-500 sm:text-sm">Amount</span>
+              </div>
+              <input type="text" name="price" id="price" x-model="size" autocomplete="off"
+                class="w-full py-1 pl-20 pr-2 rounded text-sm bg-gray-900 border-gray-700 text-gray-400 focus:border-primary-600 focus:ring-primary-700 focus:ring-opacity-50"
+                placeholder="0.00">
+              <div class="absolute inset-y-0 right-0 flex items-center">
+                <label class="sr-only">Currency</label>
+                <select name="currency" x-model="amountCurrency"
+                  class="h-full bg-transparent py-0 pl-2 pr-7 text-sm bg-gray-900 border-gray-700 text-gray-400 focus:border-primary-600 focus:ring-primary-700 focus:ring-opacity-50">
+                  <template x-for="currency in currencyPairs">
+                    <option x-value="currency" x-text="currency"></option>
+                  </template>
+                </select>
+              </div>
+            </div>
+          </div> -->
+          <div class="flex flex-row" x-show="(orderType=='limit' && side=='buy') || (side=='sell')">
+            <div class="relative rounded-md shadow-sm w-full">
+              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <span class="text-gray-500 sm:text-sm">Size</span>
+              </div>
+              <input type="number" x-on:input="calcuAmount($event)" name="size" id="size" x-model.number="size"
+                autocomplete="off"
+                class="no-spinner w-full py-1 pl-20 pr-2 rounded text-sm bg-gray-900 border-gray-700 text-gray-400 focus:border-primary-600 focus:ring-primary-700 focus:ring-opacity-50"
+                placeholder="">
+              <div class="absolute inset-y-0 right-0 flex items-center">
+                <label for="baseCurrency" class="sr-only">baseCurrency</label>
+                <div id="baseCurrency" name="baseCurrency"
+                  class="rounded-md  bg-transparent  pr-7 text-gray-500  items-center focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm">
+                  <span x-text="baseCurrency"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="flex flex-row" x-show="side=='buy'">
+            <div class="relative rounded-md shadow-sm w-full">
+              <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <span class="text-gray-500 sm:text-sm">Total</span>
+              </div>
+              <input type="number" x-on:input="calcuSize($event)" name="amount" id="amount" x-model.number="amount"
+                autocomplete="off"
+                class="no-spinner w-full py-1 pl-20 pr-2 rounded text-sm bg-gray-900 border-gray-700 text-gray-400 focus:border-primary-600 focus:ring-primary-700 focus:ring-opacity-50"
+                placeholder="">
+              <div class="absolute inset-y-0 right-0 flex items-center">
+                <label for="baseCurrency" class="sr-only">quoteCurrency</label>
+                <div id="baseCurrency" name="baseCurrency"
+                  class="rounded-md  bg-transparent  pr-7 text-gray-500  items-center focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm">
+                  <span x-text="quoteCurrency"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="text-[12px] leading-4" x-show="symbol !=''">
+          <div class="flex flex-row justify-between">
+            <p>Available: </p>
+            <p><span x-text="balance"></span> <span x-text="balanceCurrency"></span></p>
+          </div>
+          <div class="flex flex-row justify-between" x-show="orderType=='limit'">
+            <p>Max <span x-text="side=='buy'? 'Buy:' : 'Sell:'"></span></p>
+            <p><span x-text="max_size"></span> <span x-text="baseCurrency"></span></p>
+          </div>
+        </div>
+        <div class="flex flex-col text-yellow-400 text-[12px] leading-4" x-show="error">
+          <p class="uppercase">Warning:</p>
+          <p class="capitalize" x-text="errorMsg"></p>
+        </div>
+
+        <!-- x-bind:disabled="!readyToPlaceOrder" -->
+        <div class="mt-4 flex flex-row hover:text-white">
+          <button type="button" x-bind:disabled="!readyToPlaceOrder"
+            x-bind:class="!readyToPlaceOrder ? 'cursor-not-allowed' : 'cursor-pointer hover:text-white'"
+            class="flex w-full justify-center rounded-md  px-3 py-1.5 text-sm font-semibold leading-6 text-gray-600  shadow-sm   focus:outline-none focus:ring focus:ring-violet-300"
+            x-bind:style="side=='buy' ? 'background-color: #1bb273;' : 'background-color: #f2495e;'"
+            x-on:click="placeOrder">
+            <svg x-show="submitting" aria-hidden="true"
+              class="inline w-4 h-4 text-white animate-spin dark:text-gray-600 fill-white" viewBox="0 0 100 101"
+              fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
+                fill="currentColor" />
+              <path
+                d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
+                fill="currentFill" />
+            </svg>
+            <span x-show="!submitting" x-text="side=='buy' ?'Buy '+  baseCurrency:'Sell ' +  baseCurrency"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div>
+    {{ block.super }}
+  </div>
+</div>
+<script>
+  document.addEventListener('alpine:init', () => {
+    Alpine.data('data', () => ({
+      readyToPlaceOrder: false,
+      openModal: false,
+      confirm: false,
+      side: 'buy',
+      orderType: 'limit',
+      account: '',
+      symbol: '',
+      price: '',
+      size: '',
+      amount: '',
+      amountCurrency: 'USDT',
+      balanceCurrency: 'USDT',
+      quoteCurrency: 'USDT',
+      baseCurrency: '',
+      currencyPair: {},
+      currencyPairs: ['USDT'],
+      submitting: false,
+      accountMapping: {},
+      exchangeMapping: {},
+      exchanges: [{ name: "Select Exchange", value: "", disabled: true }],
+      accounts: [{ name: "Select Exchange Account", value: "", disabled: true }],
+      symbols: [{ name: "Select Symbol", value: "", disabled: true }],
+      symbolMapping: {},
+      balance: 0,
+      max_size: 0,
+      changeSrc: '',
+      error: false,
+      errorMsg: '',
+      exchange: '',
+
+      async init() {
+        this.$watch('symbol', newSymbol => {
+          console.log(newSymbol);
+          if (newSymbol != '') {
+            this.currencyPair = this.symbolMapping[newSymbol];
+            this.currencyPairs = newSymbol.split('_');
+            this.baseCurrency = this.currencyPairs[0];
+            this.quoteCurrency = this.currencyPairs[1]
+            if (this.side == 'buy') {
+              if (this.orderType == 'limit') {
+                this.amountCurrency = this.currencyPairs[0];
+              } else {
+                this.amountCurrency = this.currencyPairs[1];
+              }
+            } else {
+              this.amountCurrency = this.currencyPairs[0];
+            }
+            this.calcuBalance();
+            this.calcuMaxSize();
+            this.computeReadyToPlaceOrder();
+          }
+        })
+        this.$watch('exchange', newExchange => {
+          console.log(newExchange);
+          if (newExchange != '') {
+            const accounts = this.exchangeMapping[newExchange].exchange_accounts.map(account => { return { name: account.name, value: account.id, disabled: false } });
+            console.log(accounts);
+            this.accounts = [{ name: "Select Exchange Account", value: "", disabled: true }, ...accounts];
+            this.account = ''
+            this.symbol = ''
+            this.symbols = [{ name: "Select Symbol", value: "", disabled: true }]
+            this.quoteCurrency = ''
+            this.baseCurrency = ''
+            this.amount = 0
+            this.size = 0
+          }
+          this.computeReadyToPlaceOrder();
+        })
+        this.$watch('account', newAccount => {
+          console.log("newAccount", newAccount);
+          if (newAccount != '') {
+            if (this.accountMapping[newAccount] != undefined) {
+              wallets = this.accountMapping[newAccount].wallets;
+              this.symbolMapping = {}
+              account = this.accountMapping[newAccount]
+              for (let pair of account.currency_pairs) {
+                this.symbolMapping[pair.symbol] = pair;
+              }
+              this.calcuBalance();
+              this.calcuMaxSize();
+              const currencyPairs = this.accountMapping[newAccount].currency_pairs
+              console.log('currencyPairs', currencyPairs);
+              const symbols = currencyPairs.map(pair => { return { name: pair.symbol, value: pair.symbol, disabled: false } })
+              this.symbols = [{ name: "Select Symbol", value: "", disabled: true }, ...symbols]
+
+            }
+          }
+          this.computeReadyToPlaceOrder();
+        })
+        this.$watch('side', newSide => {
+          this.balance = "";
+          this.amount = "";
+          this.size = "";
+          this.calcuBalance();
+          this.calcuMaxSize();
+          if (newSide == 'buy') {
+            if (this.orderType == 'limit') {
+              this.amountCurrency = this.currencyPairs[0];
+            } else {
+              this.amountCurrency = this.currencyPairs[1];
+            }
+          } else {
+            this.amountCurrency = this.currencyPairs[0];
+          }
+        })
+        this.$watch('price', newPrice => {
+          this.calcuMaxSize();
+          this.calcuAmount();
+          this.calcuSize();
+          if (this.currencyPair.last_price) {
+            warnningPrice = parseFloat(this.currencyPair.last_price) * 1.05;
+            if (parseFloat(newPrice) > warnningPrice) {
+              console.log('Price is too high');
+              this.error = true;
+              this.errorMsg = `Price is too high, 5% higher than the market price`;
+            } else {
+              this.error = false;
+              this.errorMsg = '';
+            }
+          }
+          this.computeReadyToPlaceOrder();
+        })
+        this.$watch('size', newSize => {
+          const balance = this.balance || 0;
+          if (this.side == 'sell') {
+            console.log(newSize, balance, parseFloat(newSize) > balance)
+            const currencyPair = this.symbolMapping[this.symbol];
+            const baseMinSize = parseFloat(currencyPair.base_min_size || 0);
+            if (parseFloat(newSize) > balance) {
+              console.log('Insufficient Balance')
+              this.error = true;
+              this.errorMsg = 'Insufficient Balance';
+            } else if (parseFloat(newSize) < baseMinSize) {
+              console.log('Size is less than minimum size')
+              this.error = true;
+              this.errorMsg = 'Size is less than minimum size';
+            } else {
+              this.error = false;
+              this.errorMsg = '';
+            }
+          }
+          this.computeReadyToPlaceOrder();
+        })
+        this.$watch('amount', newAmount => {
+          console.log(newAmount, this.balance);
+          if (newAmount == '') {
+            return;
+          }
+          if (this.side == 'buy' && this.balance != '') {
+            console.log(newAmount, this.balance)
+            const currencyPair = this.symbolMapping[this.symbol];
+            const quoteMinSize = parseFloat(currencyPair.quote_min_size || 0);
+            if (newAmount > this.balance) {
+              this.error = true;
+              this.errorMsg = 'Insufficient Balance';
+            } else if (parseFloat(newAmount) < quoteMinSize) {
+              console.log('Amount is less than minimum size')
+              this.error = true;
+              this.errorMsg = 'Amount is less than minimum size';
+            } else {
+              this.error = false;
+              this.errorMsg = '';
+            }
+          }
+          this.computeReadyToPlaceOrder();
+        })
+        this.$watch('orderType', newType => {
+          this.amount = "";
+          this.size = "";
+          this.calcuMaxSize();
+        })
+        response = await fetch('/api/trades/exchanges/', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        data = await response.json();
+        exchanges = [{ name: "Select Exchange", value: "", disabled: true }];
+        for (let exchange of data) {
+          exchanges.push({ name: exchange.name, value: exchange.code, disabled: false });
+          this.exchangeMapping[exchange.code] = exchange;
+          for (let account of exchange.exchange_accounts) {
+            this.accountMapping[account.id] = account;
+          }
+        }
+        // console.log(this.accountMapping);
+        // console.log(this.exchanges);
+        this.exchanges = exchanges;
+        console.log(data);
+      },
+      confirmAndPlaceOrder: async function () {
+        this.openModal = false;
+        this.confirm = true;
+        try {
+          this.placeOrder();
+        } catch (error) {
+          console.error('Error:', error);
+        }
+        this.confirm = false;
+      },
+      placeOrder: async function () {
+        this.submitting = true;
+        warningPrice = parseFloat(this.currencyPair.last_price) * 1.05;
+        if (parseFloat(this.price) > warningPrice && !this.confirm) {
+          this.openModal = true;
+          return;
+        }
+        try {
+          const data = {
+            exchange_account_id: Number(this.account),
+            side: this.side,
+            type: this.orderType,
+            symbol: `${this.baseCurrency}-${this.quoteCurrency}`,
+            base_currency: this.baseCurrency,
+            quote_currency: this.amountCurrency,
+            price: this.price,
+            size: this.size || 0,
+            amount: this.amount || 0,
+          }
+
+          if (this.orderType == 'market') {
+            data.price = 0;
+          }
+          const tekenElement = document.querySelector('[name="csrfmiddlewaretoken"]')
+          const csrftoken = tekenElement.getAttribute("value")
+          const response = await fetch('/api/trades/orders', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              "X-CSRFToken": csrftoken,
+            },
+            body: JSON.stringify(data),
+          });
+
+          console.log(response)
+          window.location = window.location.href;
+
+        } catch (error) {
+          console.error('Error:', error);
+        }
+        this.submitting = false;
+      },
+      cancelOrder: async function (orderId) {
+        console.log('cancel order' + orderId);
+        const tekenElement = document.querySelector('[name="csrfmiddlewaretoken"]')
+        const csrftoken = tekenElement.getAttribute("value")
+        const response = await fetch('/api/trades/orders/' + orderId, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            "X-CSRFToken": csrftoken,
+          },
+        });
+        console.log(response);
+        window.location = window.location.href;
+      },
+
+      calcuBalance: function () {
+        this.balance = 0;
+        const account = this.accountMapping[this.account]
+        if (!account) {
+          return;
+        }
+        wallets = account.wallets;
+        const quoteCurrency = this.quoteCurrency || 'USDT';
+        const baseCurrency = this.baseCurrency;
+        const currency = this.side == 'buy' ? quoteCurrency : baseCurrency;
+        this.balanceCurrency = currency;
+        console.log(this.side == 'buy', currency, this.quoteCurrency || 'USDT');
+        for (let wallet of wallets) {
+          if (wallet.currency == currency) {
+            this.balance = parseFloat(wallet.available);
+          }
+        }
+      },
+      calcuMaxSize: function () {
+        if (this.balance == 0 || this.price == '') {
+          return;
+        }
+        if (this.orderType == 'market') {
+          this.max_size = 0;
+          return;
+        }
+        if (this.side == 'buy') {
+          this.max_size = parseFloat(this.balance / this.price).toFixed(2);
+        } else {
+          this.max_size = parseFloat(this.balance).toFixed(2);
+        }
+      },
+      calcuSize: function (event) {
+        console.log('calcuSize called');
+        const price = parseFloat(this.price);
+        console.log("price", price);
+        if (!price || this.amount == '' || this.orderType == 'market') {
+          return;
+        }
+        if (this.side == 'buy') {
+          // const amount = parseFloat(this.size) * parseFloat(this.price);
+          // if (this.amount == amount.toFixed(2)) {
+          //   return;
+          // }
+          let amount = this.amount
+          if (event) {
+            amount = parseFloat(event.target.value);
+          }
+          const newSize = amount / parseFloat(this.price);
+          this.size = newSize.toFixed(2).toString();
+        }
+      },
+      calcuAmount: function (event) {
+        console.log('calcuAmount called');
+        const price = parseFloat(this.price);
+        if (!price || this.size == '' || this.orderType == 'market') {
+          return;
+        }
+        if (this.side == 'buy') {
+          let size = this.size;
+          if (event) {
+            size = parseFloat(event.target.value);
+          }
+          const newAmount = parseFloat(size) * parseFloat(this.price);
+
+          this.amount = newAmount.toFixed(2).toString();
+          console.log(this.amount);
+        }
+      },
+      chsrc: function (event) {
+        console.log('chsrc called', event.target.value);
+        this.changeSrc = 'changed';
+      },
+      computeReadyToPlaceOrder: function () {
+        if (this.side == 'buy') {
+          if (this.orderType == 'limit') {
+            this.readyToPlaceOrder = this.price > 0 && this.size > 0 && this.amount > 0 && this.account != '' && this.symbol != '' && this.exchange != '';
+          } else {
+            this.readyToPlaceOrder = this.amount > 0 && this.symbol != '' && this.exchange != '';
+          }
+        } else {
+          if (this.orderType == 'limit') {
+            this.readyToPlaceOrder = this.price > 0 && this.size > 0 && this.account != '' && this.symbol != '' && this.exchange != '';
+          } else {
+            this.readyToPlaceOrder = this.size > 0 && this.symbol != '' && this.exchange != '';
+          }
+        }
+      },
+    }))
+  })
+
+</script>
+{% endblock %}

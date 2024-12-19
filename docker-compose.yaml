@@ -1,0 +1,94 @@
+version: "3.8"
+
+networks:
+  local-dev:
+    name: local-dev
+    driver: bridge
+    external: true
+
+services:
+  amm:
+    build: .
+    image: amm
+    command: python manage.py runserver --insecure 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=False
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CACHE_LOCATION=redis://redis:6379/0?decode_responses=true
+      - DB_HOST=postgresql
+    volumes:
+      - .:/amm
+    depends_on:
+      - amm-migration
+    networks:
+      - local-dev
+
+  amm-migration:
+    image: amm
+    command: python manage.py makemigrations && python manage.py migrate --noinput
+    volumes:
+      - .:/amm
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CACHE_LOCATION=redis://redis:6379/0?decode_responses=true
+      - DB_HOST=postgresql
+    networks:
+      - local-dev
+
+  amm-celery:
+    image: amm
+    networks:
+      - local-dev
+    volumes:
+      - .:/amm
+    environment:
+      - DEBUG=False
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CACHE_LOCATION=redis://redis:6379/0?decode_responses=true
+      - DB_HOST=postgresql
+    entrypoint:
+      [
+        "/bin/sh",
+        "-c",
+        "/usr/local/bin/celery -A amm worker -l info"
+      ]
+    restart: no
+    depends_on:
+      - amm
+
+  amm-celery-beat:
+    image: amm
+    networks:
+      - local-dev
+    volumes:
+      - .:/amm
+    environment:
+      - DEBUG=False
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CACHE_LOCATION=redis://redis:6379/0?decode_responses=true
+      - DB_HOST=postgresql
+    entrypoint:
+      [
+        "/bin/sh",
+        "-c",
+        "/usr/local/bin/celery -A amm beat -l info"
+      ]
+    restart: no
+    depends_on:
+      - amm-celery
+
+  amm-spider:
+    image: amm
+    command: python manage.py run_spider gateio Spot-Test-Account-1
+    volumes:
+      - .:/amm
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CACHE_LOCATION=redis://redis:6379/0?decode_responses=true
+      - DB_HOST=postgresql
+    networks:
+      - local-dev
+    depends_on:
+      - amm

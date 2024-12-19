@@ -1,7 +1,7 @@
 # AMM
 
 ## Overview
-AMM-P is designed to centrally manage cryptocurrency exchange accounts. Currently, it supports spot trading and displays account positions information. Future features will be continuously improved. It supports real-time account synchronization using WebSocket.
+AMM is designed to centrally manage cryptocurrency exchange accounts. Currently, it supports spot trading and displays account positions information. Future features will be continuously improved. It supports real-time account synchronization using WebSocket.
 
 ## Supported Exchanges
 - [x] Binance
